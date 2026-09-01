@@ -48,7 +48,10 @@ game_over = False
 
 def draw():
     window.blit(background_image, (0, 0))
-    window.blit(bird.img, bird)
+    angle = max(min(-velocity_y * 5, 25), -90)
+    rotated_bird = pygame.transform.rotate(bird.img, angle)
+    rotated_rect = rotated_bird.get_rect(center=bird.center)
+    window.blit(rotated_bird, rotated_rect)
 
     for pipe in pipes:
         window.blit(pipe.img, pipe)
