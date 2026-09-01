@@ -45,6 +45,28 @@ velocity_y = 0
 gravity = 0.4
 score = 0
 game_over = False
+start_screen = True
+
+start_button = pygame.Rect(0, 0, 180, 54)
+start_button.center = (GAME_WIDTH/2, GAME_HEIGHT/2 + 80)
+
+try_again_button = pygame.Rect(0, 0, 190, 54)
+try_again_button.center = (GAME_WIDTH/2, GAME_HEIGHT/2 + 90)
+
+def draw_centered_text(text, font_size, y, color="white"):
+    text_font = pygame.font.SysFont("Comic Sans MS", font_size)
+    text_render = text_font.render(text, True, color)
+    text_rect = text_render.get_rect(center=(GAME_WIDTH/2, y))
+    window.blit(text_render, text_rect)
+
+def draw_button(rect, text):
+    pygame.draw.rect(window, "white", rect, border_radius=8)
+    pygame.draw.rect(window, "black", rect, 3, border_radius=8)
+
+    text_font = pygame.font.SysFont("Comic Sans MS", 28)
+    text_render = text_font.render(text, True, "black")
+    text_rect = text_render.get_rect(center=rect.center)
+    window.blit(text_render, text_rect)
 
 def draw():
     window.blit(background_image, (0, 0))
@@ -57,12 +79,27 @@ def draw():
         window.blit(pipe.img, pipe)
 
     text_str = str(int(score))
-    if game_over:
-        text_str = "Game Over: " + text_str
 
     text_font = pygame.font.SysFont("Comic Sans MS", 45)
     text_render = text_font.render(text_str, True, "white")
     window.blit(text_render, (5, 0))
+
+def draw_start_screen():
+    window.blit(background_image, (0, 0))
+    window.blit(bird.img, bird)
+    draw_centered_text("Flappy Bird", 48, GAME_HEIGHT/2 - 80)
+    draw_centered_text("Press Space or click Start", 22, GAME_HEIGHT/2 - 20)
+    draw_button(start_button, "Start")
+
+def draw_game_over_screen():
+    draw()
+    overlay = pygame.Surface((GAME_WIDTH, GAME_HEIGHT), pygame.SRCALPHA)
+    overlay.fill((0, 0, 0, 120))
+    window.blit(overlay, (0, 0))
+
+    draw_centered_text("Game Over", 46, GAME_HEIGHT/2 - 80)
+    draw_centered_text("Score: " + str(int(score)), 30, GAME_HEIGHT/2 - 25)
+    draw_button(try_again_button, "Try Again")
 
 def move():
     global velocity_y, score, game_over
@@ -102,6 +139,21 @@ def create_pipes():
 
     print(len(pipes))
 
+def reset_game():
+    global velocity_y, score, game_over
+    bird.y = bird_y
+    pipes.clear()
+    velocity_y = 0
+    score = 0
+    game_over = False
+
+def start_game():
+    global start_screen
+    reset_game()
+    pygame.event.clear(create_pipes_timer)
+    pygame.time.set_timer(create_pipes_timer, 1500)
+    start_screen = False
+
 pygame.init()
 window = pygame.display.set_mode((GAME_WIDTH, GAME_HEIGHT))
 pygame.display.set_caption("Flappy Bird")
@@ -116,21 +168,33 @@ while True:
             pygame.quit()
             exit()
 
-        if event.type == create_pipes_timer and not game_over:
+        if event.type == create_pipes_timer and not start_screen and not game_over:
             create_pipes()
 
+        if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+            if start_screen and start_button.collidepoint(event.pos):
+                start_game()
+            elif game_over and try_again_button.collidepoint(event.pos):
+                start_game()
+
         if event.type == pygame.KEYDOWN:
-            if event.key in (pygame.K_SPACE, pygame.K_UP):
+            if start_screen and event.key in (pygame.K_SPACE, pygame.K_UP, pygame.K_RETURN):
+                start_game()
+            elif game_over and event.key in (pygame.K_SPACE, pygame.K_UP, pygame.K_RETURN):
+                start_game()
+            elif event.key in (pygame.K_SPACE, pygame.K_UP):
                 velocity_y = -6
 
-                if game_over:
-                    bird.y = bird_y
-                    pipes.clear()
-                    score = 0
-                    game_over = False
-
-    if not game_over:
+    if start_screen:
+        draw_start_screen()
+    elif game_over:
+        draw_game_over_screen()
+    else:
         move()
-        draw()
-        pygame.display.update()
-        clock.tick(60)
+        if game_over:
+            draw_game_over_screen()
+        else:
+            draw()
+
+    pygame.display.update()
+    clock.tick(60)
