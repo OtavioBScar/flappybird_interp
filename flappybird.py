@@ -2,25 +2,26 @@ import pygame
 import random
 
 # game variables
-GAME_WIDTH = 360
-GAME_HEIGHT = 640
+GAME_WIDTH = 1920
+GAME_HEIGHT = 1080
 
 # bird class
 bird_x = GAME_WIDTH/8
 bird_y = GAME_HEIGHT/2
-bird_width = 34
-bird_height = 24
+bird_width = 136
+bird_height = 96
 
 class Bird(pygame.Rect):
     def __init__(self, img):
         pygame.Rect.__init__(self, bird_x, bird_y, bird_width, bird_height)
         self.img = img
 
+
 # pipe class
 pipe_x = GAME_WIDTH
 pipe_y = 0
-pipe_width = 64
-pipe_height = 512
+pipe_width = 128
+pipe_height = 1024
 
 class Pipe(pygame.Rect):
     def __init__(self, img):
@@ -28,19 +29,37 @@ class Pipe(pygame.Rect):
         self.img = img
         self.passed = False
 
+# eagle class
+eagle_x = GAME_WIDTH
+eagle_y = 0
+eagle_width = 128
+eagle_height = 128
+
+class Eagle(pygame.Rect):
+    def __init__(self, img):
+        pygame.Rect.__init__(self, eagle_x, eagle_y, eagle_width, eagle_height)
+        self.img = img
+        self.passed = False
+
 # game images
-background_image = pygame.image.load("flappybirdbg.png")
+background_image_raw = pygame.image.load("flappybirdbg.png")
+background_image = pygame.transform.scale(background_image_raw, (1920, 1080))
 bird_image_raw = pygame.image.load("flappybird.png")
 bird_image = pygame.transform.scale(bird_image_raw, (bird_width, bird_height))
+dead_bird_image_raw = pygame.image.load("flappybirddead.png")
+dead_bird_image = pygame.transform.scale(dead_bird_image_raw, (bird_width, bird_height))
 top_pipe_image_raw = pygame.image.load("toppipe.png")
 top_pipe_image = pygame.transform.scale(top_pipe_image_raw, (pipe_width, pipe_height))
 bottom_pipe_image_raw = pygame.image.load("bottompipe.png")
 bottom_pipe_image = pygame.transform.scale(bottom_pipe_image_raw, (pipe_width, pipe_height))
+eagle_image_raw = pygame.image.load("eagle.png")
+eagle_image = pygame.transform.scale(eagle_image_raw, (eagle_width, eagle_height))
 
 # game logic
 bird = Bird(bird_image)
 pipes = []
-velocity_x = -2
+eagles = []
+velocity_x = -8
 velocity_y = 0
 gravity = 0.4
 score = 0
@@ -70,13 +89,17 @@ def draw_button(rect, text):
 
 def draw():
     window.blit(background_image, (0, 0))
+    current_bird_image = dead_bird_image if game_over else bird.img
     angle = max(min(-velocity_y * 5, 25), -90)
-    rotated_bird = pygame.transform.rotate(bird.img, angle)
+    rotated_bird = pygame.transform.rotate(current_bird_image, angle)
     rotated_rect = rotated_bird.get_rect(center=bird.center)
     window.blit(rotated_bird, rotated_rect)
 
     for pipe in pipes:
         window.blit(pipe.img, pipe)
+
+    for eagle in eagles:
+        window.blit(eagle.img, eagle)
 
     text_str = str(int(score))
 
@@ -122,8 +145,21 @@ def move():
             game_over = True
             return
 
+    for eagle in eagles:
+        eagle.x += velocity_x * 2
+
+        if not eagle.passed and bird.x > eagle.x + eagle.width:
+            eagle.passed = True
+
+        if bird.colliderect(eagle):
+            game_over = True
+            return
+
     while len(pipes) > 0 and pipes[0].x < -pipe_width:
         pipes.pop(0)
+
+    while len(eagles) > 0 and eagles[0].x < -eagle_width:
+        eagles.pop(0)
 
 def create_pipes():
     random_pipe_y = pipe_y - pipe_height/4 - random.random()*(pipe_height/2)
@@ -139,10 +175,19 @@ def create_pipes():
 
     print(len(pipes))
 
+def create_eagles():
+    top_margin = 80
+    bottom_margin = 80
+    random_eagle_y = random.randint(top_margin, GAME_HEIGHT - eagle_height - bottom_margin)
+    eagle = Eagle(eagle_image)
+    eagle.y = random_eagle_y
+    eagles.append(eagle)
+
 def reset_game():
     global velocity_y, score, game_over
     bird.y = bird_y
     pipes.clear()
+    eagles.clear()
     velocity_y = 0
     score = 0
     game_over = False
@@ -151,7 +196,9 @@ def start_game():
     global start_screen
     reset_game()
     pygame.event.clear(create_pipes_timer)
-    pygame.time.set_timer(create_pipes_timer, 1500)
+    pygame.time.set_timer(create_pipes_timer, 2000)
+    pygame.event.clear(create_eagles_timer)
+    pygame.time.set_timer(create_eagles_timer, 5000)
     start_screen = False
 
 pygame.init()
@@ -160,7 +207,10 @@ pygame.display.set_caption("Flappy Bird")
 clock = pygame.time.Clock()
 
 create_pipes_timer = pygame.USEREVENT + 0
-pygame.time.set_timer(create_pipes_timer, 1500)
+pygame.time.set_timer(create_pipes_timer, 2000)
+
+create_eagles_timer = pygame.USEREVENT + 1
+pygame.time.set_timer(create_eagles_timer, 5000)
 
 while True:
     for event in pygame.event.get():
@@ -170,6 +220,9 @@ while True:
 
         if event.type == create_pipes_timer and not start_screen and not game_over:
             create_pipes()
+
+        if event.type == create_eagles_timer and not start_screen and not game_over:
+            create_eagles()
 
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             if start_screen and start_button.collidepoint(event.pos):
@@ -183,7 +236,7 @@ while True:
             elif game_over and event.key in (pygame.K_SPACE, pygame.K_UP, pygame.K_RETURN):
                 start_game()
             elif event.key in (pygame.K_SPACE, pygame.K_UP):
-                velocity_y = -6
+                velocity_y = -8
 
     if start_screen:
         draw_start_screen()
